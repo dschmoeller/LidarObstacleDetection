@@ -80,10 +80,31 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
 }
 
 void cityBlock (pcl::visualization::PCLVisualizer::Ptr& viewer){
+    // Create Point Processor object
     ProcessPointClouds<pcl::PointXYZI>* pointProcessorI = new ProcessPointClouds<pcl::PointXYZI>();
+    // Load real world lidar data from a file
     pcl::PointCloud<pcl::PointXYZI>::Ptr inputCloud = pointProcessorI->loadPcd("../src/sensors/data/pcd/data_1/0000000000.pcd");
-    renderPointCloud(viewer, inputCloud, "inputCloud");
-
+    // 1. FILTERING (voxel and region of interest)
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filterCloud = pointProcessorI->FilterCloud(inputCloud, 0.1f , Eigen::Vector4f (-10.0, -5.0, -3.0, 1), Eigen::Vector4f ( 50.0, 5.0, 10.0, 1));
+    // Rendering
+    //renderPointCloud(viewer,filterCloud,"filterCloud");
+    // 2. SEGMENTATION
+    std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filterCloud, 100, 0.1); 
+    // Rendering
+    //renderPointCloud(viewer, segmentedCloud.first, "Plane cloud", Color(1,0,0));
+    //renderPointCloud(viewer, segmentedCloud.second, "Object cloud", Color(0,1,1));
+    // 3. CLUSTERING
+    std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> cloudClusters = pointProcessorI->Clustering(segmentedCloud.second, 0.5, 50, 10000); 
+    // Rendering
+    int clusterId = 0; 
+    std::vector<Color> colors = {Color(1,0,0), Color(0,1,0), Color(0,0,1)}; 
+    for(pcl::PointCloud<pcl::PointXYZI>::Ptr cluster : cloudClusters){
+        renderPointCloud(viewer,cluster,"obstCloud" + std::to_string(clusterId), colors[clusterId%3]); 
+        // Render bounding boxes around clusters
+        Box box = pointProcessorI->BoundingBox(cluster); 
+        renderBox(viewer,box,clusterId); 
+        ++clusterId; 
+    }   
 }
 
 //setAngle: SWITCH CAMERA ANGLE {XY, TopDown, Side, FPS}

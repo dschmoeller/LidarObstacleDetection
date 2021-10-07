@@ -28,12 +28,25 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
     auto startTime = std::chrono::steady_clock::now();
 
     // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
+    // Apply voxel filter
+    typename pcl::PointCloud<PointT>::Ptr voxelCloud (new pcl::PointCloud<PointT>()); 
+    pcl::VoxelGrid<PointT> voxelFilter; 
+    voxelFilter.setInputCloud(cloud); 
+    voxelFilter.setLeafSize(filterRes, filterRes, filterRes); 
+    voxelFilter.filter(*voxelCloud); 
+    // Apply crop box for region of interest
+    typename pcl::PointCloud<PointT>::Ptr ROICloud (new pcl::PointCloud<PointT>()); 
+    pcl::CropBox<PointT> cropBox; 
+    cropBox.setMin(minPoint); 
+    cropBox.setMax(maxPoint); 
+    cropBox.setInputCloud(voxelCloud);
+    cropBox.filter(*ROICloud);  
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    return cloud;
+    return ROICloud;
 
 }
 
