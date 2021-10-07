@@ -75,12 +75,38 @@ void render2DTree(Node* node, pcl::visualization::PCLVisualizer::Ptr& viewer, Bo
 
 }
 
+void helpCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol, std::vector<bool>& processed, int processedIdx, std::vector<int>& cluster){
+	// Mark point as processed
+	processed[processedIdx] = false; 
+	// Add point id to cluster
+	cluster.push_back(processedIdx);
+	// Get all nearby points
+	std::vector<int> nearby = tree->search(points[processedIdx],distanceTol); 
+	for(int pId : nearby){
+		if (processed[pId] == true){
+			// Point has not been processed yet
+			helpCluster(points, tree, distanceTol, processed, pId, cluster); 
+		}
+	}
+
+}
+
 std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol)
 {
-
 	// TODO: Fill out this function to return list of indices for each cluster
-
 	std::vector<std::vector<int>> clusters;
+	std::vector<bool> processed(points.size(), true); 
+	for(auto it = points.begin(); it != points.end(); ++it){ 
+		int idx = std::distance(points.begin(), it); 
+		if (processed[idx] == true){
+			//Point has not been processed --> Create the cluster 
+			std::vector<int> cluster;
+			//Find all points within this cluster
+			helpCluster(points, tree, distanceTol, processed, idx, cluster); 
+			//Add cluster to set of clusters
+			clusters.push_back(cluster);  
+		}
+	}
  
 	return clusters;
 
@@ -101,7 +127,8 @@ int main ()
 
 	// Create data
 	std::vector<std::vector<float>> points = { {-6.2,7}, {-6.3,8.4}, {-5.2,7.1}, {-5.7,6.3}, {7.2,6.1}, {8.0,5.3}, {7.2,7.1}, {0.2,-7.1}, {1.7,-6.9}, {-1.2,-7.2}, {2.2,-8.9} };
-	//std::vector<std::vector<float>> points = { {-6.2,7}, {-6.3,8.4}, {-5.2,7.1}, {-5.7,6.3} };
+	//std::vector<std::vector<float>> points = { {-6.2,7}, {-6.3,8.4}, {-5.2,7.1}, {-5.7,6.3}, {5.7,-6.3}, {6.0,-6.0}, {5.7,6.3}, {6.0,6.0}, {-5.7,-6.3}, {-6.0,-6.0} };
+	//std::vector<std::vector<float>> points = { {-6.2,7}};
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = CreateData(points);
 
 	KdTree* tree = new KdTree;
@@ -113,7 +140,7 @@ int main ()
   	render2DTree(tree->root,viewer,window, it);
   
   	std::cout << "Test Search" << std::endl;
-  	std::vector<int> nearby = tree->search({-6,7},3.0);
+  	std::vector<int> nearby = tree->search({-6.0,6.5},3.0);
   	for(int index : nearby)
       std::cout << index << ",";
   	std::cout << std::endl;
