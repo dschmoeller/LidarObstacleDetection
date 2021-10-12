@@ -89,7 +89,7 @@ void cityBlock (pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointClou
     // 2. SEGMENTATION
     std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filterCloud, 100, 0.1); 
     // Rendering
-    //renderPointCloud(viewer, segmentedCloud.first, "Plane cloud", Color(1,0,0));
+    renderPointCloud(viewer, segmentedCloud.first, "Plane cloud", Color(1,1,0));
     //renderPointCloud(viewer, segmentedCloud.second, "Object cloud", Color(0,1,1));
     
     // 3. CLUSTERING

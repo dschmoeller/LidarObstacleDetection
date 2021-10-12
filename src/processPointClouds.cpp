@@ -77,11 +77,64 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
 
 
 template<typename PointT>
+std::unordered_set<int> ProcessPointClouds<PointT>::Ransac(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceTol){
+    
+    std::unordered_set<int> inliersResult;
+	std::unordered_set<int> inliersResultFinal;
+	srand(time(NULL));
+
+	// For max iterations 
+	for (int i = 0; i < maxIterations; ++i){
+        //3D case
+		int idPoint1 = rand() % cloud->size(); 
+		int idPoint2 = rand() % cloud->size(); 
+		int idPoint3 = rand() % cloud->size();
+
+		// Measure distance between every point and fitted line
+		// Line parameters (Ax + By + C = 0)
+		float x1 = cloud->points[idPoint1].x; 
+		float y1 = cloud->points[idPoint1].y; 
+		float z1 = cloud->points[idPoint1].z; 
+		float x2 = cloud->points[idPoint2].x; 
+		float y2 = cloud->points[idPoint2].y; 
+		float z2 = cloud->points[idPoint2].z; 
+		float x3 = cloud->points[idPoint3].x; 
+		float y3 = cloud->points[idPoint3].y; 
+		float z3 = cloud->points[idPoint3].z; 
+		float A = (y2-y1)*(z3-z1) - (z2-z1)*(y3-y1); 
+		float B = (z2-z1)*(x3-x1) - (x2-x1)*(z3-z1); 
+		float C = (x2-x1)*(y3-y1) - (y2-y1)*(x3-x1); 
+		float D = -(A*x1 + B*y1 + C*z1); 
+		
+		for (auto it = cloud->begin(); it < cloud->end(); ++it){
+			float x = (*it).x; 
+			float y = (*it).y; 
+			float z = (*it).z; 
+			float distance = abs(A*x + B*y+ C*z + D) / sqrt(A*A + B*B + C*C); 
+			// If distance is smaller than threshold count it as inlier
+			if (distance < distanceTol){
+				inliersResult.insert((int)(it - cloud->begin())); 
+			}
+		} 	
+
+		// Return indicies of inliers from fitted line with most inliers
+		if (inliersResult.size() > inliersResultFinal.size()){
+			inliersResultFinal = inliersResult;  
+		}
+		// Clear inliers set for next iteration
+		inliersResult.clear(); 
+	}
+	return inliersResultFinal;
+}
+
+
+template<typename PointT>
 std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceThreshold)
 {
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 	
+    /*
     // Create segmentaton object
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients()); 
@@ -97,13 +150,31 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     seg.segment(*inliers, *coefficients); 
     if (inliers->indices.size() == 0){
         std::cerr << "Could not estimate a planar model for the geiven dataset" << std::endl; 
-    }
-   
+    } 
+    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers,cloud);
+    */
+    
+    // Using RANSAC implementaton from quiz
+    // Run Ransac in order to segment a plane
+	std::unordered_set<int> inliers = Ransac(cloud, 10, 0.5);
+	typename pcl::PointCloud<PointT>::Ptr  cloudInliers(new pcl::PointCloud<PointT>());
+	typename pcl::PointCloud<PointT>::Ptr cloudOutliers(new pcl::PointCloud<PointT>());
+	for(int index = 0; index < cloud->points.size(); index++)
+	{
+		auto point = cloud->points[index];
+		if(inliers.count(index))
+			cloudInliers->points.push_back(point);
+		else
+			cloudOutliers->points.push_back(point);
+	}
+    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult (cloudInliers, cloudOutliers); 
+
+    // Measure time
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "plane segmentation took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers,cloud);
+    // Return results
     return segResult;
 }
 
@@ -211,3 +282,6 @@ std::vector<boost::filesystem::path> ProcessPointClouds<PointT>::streamPcd(std::
     return paths;
 
 }
+
+
+
