@@ -135,6 +135,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     auto startTime = std::chrono::steady_clock::now();
 	
     /*
+    // Utilize PCL library for segmentation 
     // Create segmentaton object
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients()); 
@@ -188,7 +189,8 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::C
 
     std::vector<typename pcl::PointCloud<PointT>::Ptr> clusters;
 
-    // Function to perform euclidean clustering to group detected obstacles
+    /*
+    // PCL library functions to perform euclidean clustering to group detected obstacles
     // Create KdTree object for fast search
     typename pcl::search::KdTree<PointT>::Ptr tree (new pcl::search::KdTree<PointT>); 
     tree->setInputCloud(cloud); 
@@ -215,9 +217,39 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::C
 
         // Store cluster in vector
         clusters.push_back(cloudCluster); 
+    }*/
+
+    // Using kd-tree and eucledian clustering implementation from quiz
+    // Implement and fill kd-tree
+    KdTree* tree = new KdTree;
+    std::vector<std::vector<float>> pointVector; 
+    for (int i = 0; i < cloud->size(); i++){
+        std::vector<float> point; 
+        point.push_back(cloud->points[i].x);  
+        point.push_back(cloud->points[i].y);
+        //point.push_back(cloud->points[i].z);
+        tree->insert(point, i); 
+        pointVector.push_back(point); 
     }
+    // Apply eucledian clustering algorithm returns clusters of indecies
+    std::vector<std::vector<int>> clusterIndecies = euclideanCluster(pointVector, tree, 0.3);
+    
+    // Iterate over Indecies and build actual point cloud clusters
+    for(std::vector<int> singleCluster : clusterIndecies)
+  	{
+  		typename pcl::PointCloud<PointT>::Ptr clusterCloud(new pcl::PointCloud<PointT>());
+  		for(int indice : singleCluster)
+        {
+            PointT p; 
+            p.x = cloud->points[indice].x;  
+            p.y = cloud->points[indice].y; 
+            p.z = cloud->points[indice].z; 
+            clusterCloud->points.push_back(p); 
+        }
+        clusters.push_back(clusterCloud); 
+  	}
 
-
+    // Measure time
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "clustering took " << elapsedTime.count() << " milliseconds and found " << clusters.size() << " clusters" << std::endl;
@@ -283,5 +315,42 @@ std::vector<boost::filesystem::path> ProcessPointClouds<PointT>::streamPcd(std::
 
 }
 
+
+template<typename PointT>
+std::vector<std::vector<int>> ProcessPointClouds<PointT>::euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol)
+{
+    std::vector<std::vector<int>> clusters;
+	std::vector<bool> processed(points.size(), true); 
+	for(auto it = points.begin(); it != points.end(); ++it){ 
+		int idx = std::distance(points.begin(), it); 
+		if (processed[idx] == true){
+			//Point has not been processed --> Create the cluster 
+			std::vector<int> cluster;
+			//Find all points within this cluster
+			helpCluster(points, tree, distanceTol, processed, idx, cluster); 
+			//Add cluster to set of clusters
+			clusters.push_back(cluster);  
+		}
+	}
+	return clusters;
+}
+
+
+template<typename PointT>
+void ProcessPointClouds<PointT>::helpCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol, std::vector<bool>& processed, int processedIdx, std::vector<int>& cluster){
+	// Mark point as processed
+	processed[processedIdx] = false; 
+	// Add point id to cluster
+	cluster.push_back(processedIdx);
+	// Get all nearby points
+	std::vector<int> nearby = tree->search(points[processedIdx],distanceTol); 
+	for(int pId : nearby){
+		if (processed[pId] == true){
+			// Point has not been processed yet
+			helpCluster(points, tree, distanceTol, processed, pId, cluster); 
+		}
+	}
+
+}
 
 
