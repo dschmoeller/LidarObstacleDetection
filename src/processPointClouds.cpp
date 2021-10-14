@@ -27,13 +27,13 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 
-    // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
     // Apply voxel filter
     typename pcl::PointCloud<PointT>::Ptr voxelCloud (new pcl::PointCloud<PointT>()); 
     pcl::VoxelGrid<PointT> voxelFilter; 
     voxelFilter.setInputCloud(cloud); 
     voxelFilter.setLeafSize(filterRes, filterRes, filterRes); 
     voxelFilter.filter(*voxelCloud); 
+    
     // Apply crop box for region of interest
     typename pcl::PointCloud<PointT>::Ptr ROICloud (new pcl::PointCloud<PointT>()); 
     pcl::CropBox<PointT> cropBox; 
@@ -42,6 +42,26 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
     cropBox.setInputCloud(voxelCloud);
     cropBox.filter(*ROICloud);  
 
+    // Remove roof points
+    // Use cropbox to identify points within the roof box and store them as inliers
+    std::vector<int> indices; 
+    pcl::CropBox<PointT> roof(true); 
+    roof.setMin(Eigen::Vector4f(-1.5, -1.7, -1, 1)); 
+    roof.setMax(Eigen::Vector4f(2.6, 1.7, -0.4, 1)); 
+    roof.setInputCloud(ROICloud); 
+    roof.filter(indices); 
+    pcl::PointIndices::Ptr inliers {new pcl::PointIndices}; 
+    for (int point : indices){
+        inliers->indices.push_back(point); 
+    }
+    // Remove inliers from (filered) point cloud
+    pcl::ExtractIndices<PointT> extractRoof; 
+    extractRoof.setInputCloud(ROICloud); 
+    extractRoof.setIndices(inliers); 
+    extractRoof.setNegative(true); 
+    extractRoof.filter(*ROICloud); 
+
+    // Measure time
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
@@ -228,7 +248,7 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::C
         std::vector<float> point; 
         point.push_back(cloud->points[i].x);  
         point.push_back(cloud->points[i].y);
-        //point.push_back(cloud->points[i].z);
+        point.push_back(cloud->points[i].z);
         tree->insert(point, i); 
         pointVector.push_back(point); 
     }
@@ -329,8 +349,10 @@ std::vector<std::vector<int>> ProcessPointClouds<PointT>::euclideanCluster(const
 			std::vector<int> cluster;
 			//Find all points within this cluster
 			helpCluster(points, tree, distanceTol, processed, idx, cluster); 
-			//Add cluster to set of clusters
-			clusters.push_back(cluster);  
+			//Add cluster to set of clusters if cluster is big enough
+            if (cluster.size() > 50){
+                clusters.push_back(cluster);
+            }  
 		}
 	}
 	return clusters;

@@ -82,12 +82,12 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
 void cityBlock (pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointClouds<pcl::PointXYZI>* pointProcessorI, const pcl::PointCloud<pcl::PointXYZI>::Ptr& inputCloud){
     
     // 1. FILTERING (voxel and region of interest)
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filterCloud = pointProcessorI->FilterCloud(inputCloud, 0.1f , Eigen::Vector4f (-10.0, -5.0, -3.0, 1), Eigen::Vector4f ( 50.0, 5.0, 10.0, 1));
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filterCloud = pointProcessorI->FilterCloud(inputCloud, 0.1f , Eigen::Vector4f (-10.0, -5.0, -3.0, 1), Eigen::Vector4f ( 40.0, 5.0, 10.0, 1));
     // Rendering
     //renderPointCloud(viewer,filterCloud,"filterCloud");
     
     // 2. SEGMENTATION
-    std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filterCloud, 10, 0.5); 
+    std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filterCloud, 30, 0.2); 
     // Rendering
     renderPointCloud(viewer, segmentedCloud.first, "Plane cloud", Color(1,1,0));
     //renderPointCloud(viewer, segmentedCloud.second, "Object cloud", Color(0,1,1));
