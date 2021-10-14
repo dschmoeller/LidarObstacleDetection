@@ -124,6 +124,7 @@ std::unordered_set<int> ProcessPointClouds<PointT>::Ransac(typename pcl::PointCl
 		// Clear inliers set for next iteration
 		inliersResult.clear(); 
 	}
+
 	return inliersResultFinal;
 }
 
@@ -157,7 +158,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     
     // Using RANSAC implementaton from quiz
     // Run Ransac in order to segment a plane
-	std::unordered_set<int> inliers = Ransac(cloud, 10, 0.5);
+	std::unordered_set<int> inliers = Ransac(cloud, maxIterations, distanceThreshold);
 	typename pcl::PointCloud<PointT>::Ptr  cloudInliers(new pcl::PointCloud<PointT>());
 	typename pcl::PointCloud<PointT>::Ptr cloudOutliers(new pcl::PointCloud<PointT>());
 	for(int index = 0; index < cloud->points.size(); index++)
@@ -232,7 +233,7 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::C
         pointVector.push_back(point); 
     }
     // Apply eucledian clustering algorithm returns clusters of indecies
-    std::vector<std::vector<int>> clusterIndecies = euclideanCluster(pointVector, tree, 0.3);
+    std::vector<std::vector<int>> clusterIndecies = euclideanCluster(pointVector, tree, clusterTolerance);
     
     // Iterate over Indecies and build actual point cloud clusters
     for(std::vector<int> singleCluster : clusterIndecies)
